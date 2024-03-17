@@ -17,10 +17,10 @@ public class ExampleController {
     @PostMapping("/api/v1/example")
     public ResponseEntity<ExampleDTO> example(@RequestBody ExamplePayload body) {
 
-        try{
+        try {
             var response = exampleService.example(body.payload());
             return ResponseEntity.ok(response);
-        }catch (Exception ex){
+        } catch (Exception ex) {
             return ResponseEntity.internalServerError().body(new ExampleDTO(ex.getMessage()));
         }
     }

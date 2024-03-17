@@ -36,6 +36,4 @@ class HistoryModel {
     private Object response;
 
     private String stacktrace;
-
-
 }

@@ -15,33 +15,24 @@ import java.util.Map;
 @JsonPropertyOrder({"application", "correlation_id", "status", "start_time", "elapsed", "log_level", "class_name", "method", "request", "response", "stacktrace", "history"})
 public class LoggerModel {
 
+    @JsonProperty("history")
+    private final List<HistoryModel> historyModel;
     private String application;
-
     @JsonProperty("log_level")
     private String logLevel;
-
     @JsonProperty("start_time")
     private String startTime;
-
     @JsonProperty("elapsed")
     private String elapsed;
-
     @JsonProperty("class_name")
     private String className;
-
     private String method;
-
     @JsonProperty("correlation_id")
     private String correlationId;
-
     private Object request;
-
     private Object response;
     private String status;
-
     private String stacktrace;
-
-    private final List<HistoryModel> historyModel;
     private Map<String, String> headers;
 
     public LoggerModel() {
