@@ -1,4 +1,4 @@
-package com.sheywesk.aop.example.logs.config;
+package com.sheywesk.aop.example.logs.config.logger;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -1,4 +1,4 @@
-package com.sheywesk.aop.example.logs.config;
+package com.sheywesk.aop.example.logs.config.logger;
 
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;

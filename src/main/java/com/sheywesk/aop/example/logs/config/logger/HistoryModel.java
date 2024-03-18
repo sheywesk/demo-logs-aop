@@ -1,4 +1,4 @@
-package com.sheywesk.aop.example.logs.config;
+package com.sheywesk.aop.example.logs.config.logger;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;

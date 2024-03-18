@@ -1,4 +1,4 @@
-package com.sheywesk.aop.example.logs.config;
+package com.sheywesk.aop.example.logs.config.logger;
 
 import java.time.Duration;
 import java.time.Instant;
