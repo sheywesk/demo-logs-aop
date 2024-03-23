@@ -1,48 +1,102 @@
 package com.sheywesk.aop.example.logs.config.logger;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sheywesk.aop.example.logs.config.logger.annotation.EncryptLogger;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.lang.reflect.Parameter;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static java.util.Objects.isNull;
 
 public class Utils {
 
-    /**
-     * Determines the log level based on the type of response.
-     *
-     * @param response The response object to analyze.
-     * @return The log level ("ERROR" for Throwable, "INFO" otherwise).
-     */
     protected static String getLogLevel(Object response) {
-        return response instanceof Throwable ? "ERROR" : "INFO";
+        return isException(response) ? "ERROR" : "INFO";
     }
 
-    /**
-     * Sanitizes the response object, extracting the error message if it's a Throwable.
-     *
-     * @param response The response object to sanitize.
-     * @return The sanitized response object (message for Throwable, response itself otherwise).
-     */
-    protected static Object sanitizeResponse(Object response) {
-        return response instanceof Throwable ? ((Throwable) response).getMessage() : response;
+    protected static Boolean isController(ProceedingJoinPoint joinPoint) {
+        Class<?> targetClass = joinPoint.getTarget().getClass();
+        return targetClass.isAnnotationPresent(RestController.class);
     }
 
-    /**
-     * Generates a stack trace string if the response is a Throwable.
-     *
-     * @param response The response object to extract the stack trace from.
-     * @return The stack trace as a string, or null if the response is not a Throwable.
-     */
+    protected static Object sanitizeResponse(Object response, ObjectMapper mapperWithEncypt) throws JsonProcessingException {
+        if (isException(response)) {
+            return ((Throwable) response).getMessage();
+        }
+        return fieldToJsonWithEncrypt(response, mapperWithEncypt);
+    }
+
+    private static Boolean isException(Object response) {
+        return response instanceof Throwable;
+    }
+
+    protected static Object sanitizeRequest(ProceedingJoinPoint proceedingJoinPoint, ObjectMapper mapper) {
+
+        Object[] fields = getFieldsFromParameter(proceedingJoinPoint);
+        Parameter[] parameters = getParameters(proceedingJoinPoint);
+
+        return IntStream.range(0, parameters.length)
+                .mapToObj(index -> {
+                    try {
+                        if (hasParameterWithEncrypt(parameters[index])) {
+                            return encrypt();
+                        } else {
+                            return fieldToJsonWithEncrypt(fields[index], mapper);
+                        }
+                    } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+    }
+
+    private static String fieldToJsonWithEncrypt(Object object, ObjectMapper mapper) throws JsonProcessingException {
+        return mapper.writeValueAsString(object);
+    }
+
+    private static Parameter[] getParameters(ProceedingJoinPoint proceedingJoinPoint) {
+        MethodSignature signature = (MethodSignature) proceedingJoinPoint.getSignature();
+        return signature.getMethod().getParameters();
+    }
+
+    private static Object[] getFieldsFromParameter(ProceedingJoinPoint proceedingJoinPoint) {
+        return proceedingJoinPoint.getArgs();
+    }
+
+    private static boolean hasEncryptAnnotation(Parameter arg) {
+        return arg.isAnnotationPresent(EncryptLogger.class);
+    }
+
+    private static Boolean hasParameterWithEncrypt(Parameter parameter) {
+        return !isNull(parameter) && hasEncryptAnnotation(parameter);
+    }
+
+    protected static String calculateElapsed(Instant start) {
+        return Duration.between(start, Instant.now()).toMillis() + " ms";
+    }
+
+    protected static String getClassName(ProceedingJoinPoint proceedingJoinPoint) {
+        return proceedingJoinPoint.getTarget().getClass().getSimpleName();
+    }
+
+    protected static String getMethodName(ProceedingJoinPoint proceedingJoinPoint) {
+        return proceedingJoinPoint.getSignature().getName();
+    }
+
     protected static String getStacktrace(Object response) {
         return response instanceof Throwable ? Arrays.toString(((Throwable) response).getStackTrace()) : null;
     }
 
-    /**
-     * Calculates the elapsed time since the provided start time.
-     *
-     * @param start The start time of the operation.
-     * @return The elapsed time formatted as milliseconds.
-     */
-    protected static String calculateElapsed(Instant start) {
-        return Duration.between(start, Instant.now()).toMillis() + " ms";
+    protected static String encrypt() {
+        return "\"*****\"";
     }
 }

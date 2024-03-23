@@ -1,5 +1,6 @@
 package com.sheywesk.aop.example.logs.config.logger;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -7,119 +8,96 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-class LoggerService {
+final class LoggerService {
     private static final Logger logger = LoggerFactory.getLogger(LoggerAOP.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    private final HttpServeletHelper httpServeletHelper;
+    private final ObjectMapper mapperWithEncrypt;
+    private final ObjectMapper objectMapper;
+    private final ContextApplicationHelper contextApplicationHelper;
 
     @Value("${spring.application.name}")
     private String applicationName;
 
-    private Boolean isController(ProceedingJoinPoint joinPoint) {
-        Class<?> targetClass = joinPoint.getTarget().getClass();
-        return targetClass.isAnnotationPresent(RestController.class);
-    }
-
-    protected void processLogs(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start) {
+    void processLogs(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start) {
         try {
-            LoggerModel loggerModel = getLoggerApplicationFromContext();
+            LoggerModel loggerModel = this.getLoggerApplicationFromContext();
             Object logObject;
 
-            if (isController(proceedingJoinPoint)) {
-                logObject = createControllerLog(response, proceedingJoinPoint, start, loggerModel);
+            if (Utils.isController(proceedingJoinPoint)) {
+                logObject = processControllerLog(response, proceedingJoinPoint, start, loggerModel);
             } else {
                 logObject = createHistoryLog(response, proceedingJoinPoint, start, loggerModel);
             }
 
             if (logObject != null) {
-                logger.info(mapper.writeValueAsString(logObject));
+                var json = objectMapper.writeValueAsString(logObject);
+                logger.info(json);
             }
         } catch (Exception ex) {
             logger.error("Error processing logs: " + ex.getMessage());
         }
     }
 
-    private Object createControllerLog(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) {
-        logControllerAction(response, proceedingJoinPoint, start, loggerModel);
+    private Object processControllerLog(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) throws JsonProcessingException {
+
+        updateControllerLog(response, proceedingJoinPoint, start, loggerModel);
         return loggerModel;
     }
 
-    private Object createHistoryLog(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) {
+    private Object createHistoryLog(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) throws JsonProcessingException {
         HistoryModel history = createHistory(response, proceedingJoinPoint, start);
         loggerModel.getHistoryModel().add(history);
         return history;
     }
 
-    private LoggerModel getLoggerApplicationFromContext() {
-        return Optional.ofNullable(RequestContextHolder.getRequestAttributes())
-                .map(this::tryGetLoggerApplication)
-                .orElseThrow(() -> new IllegalStateException("RequestContextHolder.getRequestAttributes() retornou nulo"));
+    public void updateControllerLog(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) throws JsonProcessingException {
+        loggerModel.update(applicationName,
+                getStatusCodeFromRequest(),
+                getHeadersFromRequest(),
+                Utils.getLogLevel(response),
+                start.toString(),
+                Utils.calculateElapsed(start),
+                Utils.getClassName(proceedingJoinPoint),
+                Utils.getMethodName(proceedingJoinPoint),
+                getCorrelationIdFromRequest(),
+                Utils.sanitizeRequest(proceedingJoinPoint, mapperWithEncrypt),
+                Utils.sanitizeResponse(response, mapperWithEncrypt),
+                Utils.getStacktrace(response));
     }
 
-    private LoggerModel tryGetLoggerApplication(RequestAttributes requestAttributes) {
-        return Optional.ofNullable((LoggerModel) requestAttributes.getAttribute("logger", RequestAttributes.SCOPE_REQUEST))
-                .orElseGet(() -> {
-                    LoggerModel logger = new LoggerModel();
-                    requestAttributes.setAttribute("logger", logger, RequestAttributes.SCOPE_REQUEST);
-                    return logger;
-                });
-    }
-
-    public void logControllerAction(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start, LoggerModel loggerModel) {
-        String className = proceedingJoinPoint.getTarget().getClass().getSimpleName();
-        String methodName = proceedingJoinPoint.getSignature().getName();
-        String logLevel = Utils.getLogLevel(response);
-        Object sanitizedResponse = Utils.sanitizeResponse(response);
-        String stacktrace = Utils.getStacktrace(response);
-        Map<String, String> headers = getHeadersFromRequest();
-        String startTime = start.toString();
-        String elapsed = Utils.calculateElapsed(start);
-        Object[] request = proceedingJoinPoint.getArgs();
-        String status = getStatusCodeFromRequest();
-        String correlationId = getCorrelationIdFromRequest();
-        loggerModel.update(applicationName, status, headers, logLevel, startTime, elapsed, className, methodName, correlationId, request, sanitizedResponse, stacktrace);
-    }
-
-    protected HistoryModel createHistory(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start) {
-        String className = proceedingJoinPoint.getTarget().getClass().getSimpleName();
-        String methodName = proceedingJoinPoint.getSignature().getName();
-        Object request = proceedingJoinPoint.getArgs();
-        String correlationId = getCorrelationIdFromRequest();
-
+    private HistoryModel createHistory(Object response, ProceedingJoinPoint proceedingJoinPoint, Instant start) throws JsonProcessingException {
         return HistoryModel.builder()
                 .application(applicationName)
                 .logLevel(Utils.getLogLevel(response))
                 .startTime(start.toString())
                 .elapsed(Utils.calculateElapsed(start))
-                .className(className)
-                .method(methodName)
-                .correlationId(correlationId)
-                .request(request)
-                .response(Utils.sanitizeResponse(response))
+                .className(Utils.getClassName(proceedingJoinPoint))
+                .method(Utils.getMethodName(proceedingJoinPoint))
+                .correlationId(getCorrelationIdFromRequest())
+                .request(Utils.sanitizeRequest(proceedingJoinPoint, mapperWithEncrypt))
+                .response(Utils.sanitizeResponse(response, mapperWithEncrypt))
                 .stacktrace(Utils.getStacktrace(response))
                 .build();
     }
 
     private Map<String, String> getHeadersFromRequest() {
-        return httpServeletHelper.getHeaders();
+        return contextApplicationHelper.getHeaders();
     }
 
     private String getStatusCodeFromRequest() {
-        return httpServeletHelper.getStatusCode();
+        return contextApplicationHelper.getStatusCode();
     }
 
     private String getCorrelationIdFromRequest() {
-        return httpServeletHelper.getCorrelationId();
+        return contextApplicationHelper.getCorrelationId();
+    }
+
+    private LoggerModel getLoggerApplicationFromContext() {
+        return contextApplicationHelper.getLoggerModelFromContext();
     }
 }
