@@ -96,7 +96,7 @@ public class Utils {
         return response instanceof Throwable ? Arrays.toString(((Throwable) response).getStackTrace()) : null;
     }
 
-    protected static String encrypt() {
+    public static String encrypt() {
         return "\"*****\"";
     }
 }
