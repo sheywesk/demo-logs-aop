@@ -33,4 +33,5 @@ E rode o projeto na sua IDE
 
 - [x] logs automáticos
 - [x] criptografia de logs
+- [x] histórico de execuções de todos os métodos
 - [ ] sanitização de stacktrace ( em breve )
