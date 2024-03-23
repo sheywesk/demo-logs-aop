@@ -18,8 +18,6 @@ public class EncryptSerializerModifier extends BeanSerializerModifier {
                 writer.assignSerializer(new EncryptSerializer());
             }
         }
-
         return beanProperties;
     }
-
 }

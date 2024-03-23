@@ -1,5 +1,6 @@
 package com.sheywesk.aop.example.logs.services;
 
+import com.sheywesk.aop.example.logs.config.logger.annotation.EncryptLogger;
 import com.sheywesk.aop.example.logs.dto.ExampleDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,7 @@ public class ExampleService {
 
     private final Example2Service service;
 
-    public ExampleDTO example(String example) {
+    public ExampleDTO example(@EncryptLogger String example) {
         var request = new ExampleDTO(example);
         return service.example2(request);
     }
