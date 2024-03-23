@@ -1,4 +1,6 @@
 package com.sheywesk.aop.example.logs.dto;
 
-public record ExampleDTO(String example) {
+import com.sheywesk.aop.example.logs.config.logger.annotation.EncryptLogger;
+
+public record ExampleDTO(@EncryptLogger String example) {
 }

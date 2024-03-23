@@ -1,19 +1,23 @@
-package com.sheywesk.aop.example.logs.config;
+package com.sheywesk.aop.example.logs.config.logger;
 
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.JsonRawValue;
+import com.sheywesk.aop.example.logs.dto.CustomSerializerLogger;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Getter
+@Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"application", "correlation_id", "status", "start_time", "elapsed", "log_level", "class_name", "method", "request", "response", "stacktrace", "history"})
-public class LoggerModel {
+final class LoggerModel {
 
     @JsonProperty("history")
     private final List<HistoryModel> historyModel;
@@ -29,7 +33,9 @@ public class LoggerModel {
     private String method;
     @JsonProperty("correlation_id")
     private String correlationId;
+    @JsonRawValue
     private Object request;
+    @JsonRawValue
     private Object response;
     private String status;
     private String stacktrace;
